@@ -1,0 +1,205 @@
+
+<!-- MACRO: updateHealthTrackers@Lib:Health -->
+
+
+<!-- Optionally pass token, otherwise assumes current token is correct -->
+[h: tToken = ""]
+[h, if(json.isEmpty(macro.args)), code:{
+};{
+	[h, foreach(field,json.fields(macro.args),""), code:{
+		[h: set(field,json.get(macro.args,field))]
+	}]
+}]
+
+[h,if(tToken == ""): tToken = currentToken(); switchToken(tToken)]
+
+
+
+
+<!-- Lazy HP, HPtemp, and HPmax collection and validation - ensuring a numeric value is set, rounding-->
+[h: inputList = "HP,HPtemp,HPmax,Dying,DyingMax,Wounded,Doomed"]
+[h: assert(1,"made it past inputlist validation",0)]
+
+[h,foreach(HPinput, inputList,""), code: {
+	[h, if(getProperty(HPinput) == ""), code: {
+		[h: set("t"+HPinput, 0)]
+	};{
+		[h: set("t"+HPinput,getProperty(HPinput))]
+		[h: assert(isNumber(eval("t"+HPinput)),""+HPinput+" value must be a number!",0)]
+		[h: set("t"+HPinput, round("t"+HPinput,0)]
+		[h: assert(eval("t"+HPinput)>=0,""+HPinput+" value cannot be negative!",0)]
+	}]
+
+	[h: assert(1, "Output test: "+HPinput+" equals "+eval("t"+HPinput)+".",0)]
+}]
+
+
+
+<!-- Set effective Hit Point and wounded/dying values for bar calculations -->
+[H: tMaxEffectiveHP = tHPmax + tHPtemp]
+[H: effectiveHP = tHP + tHPtemp ]
+[h: tWoundedMax = 4]
+
+<!-- Even undead should have a max dying of 1, so if it's not set and the temp value was just set to zero, treat it as the default of 4-->
+[h, if(tDyingMax == 0), code: {
+	[h: tDyingMax = 4]
+};{
+}]
+
+<!-- Setting arbitrary death point, but not used in PF2e -->
+[h: deathpoint = -20]
+
+<!-- Setting non-lethal damage attribute, not needed in PF2e, to 0 
+[h: HPNonLethalDMG = 0]
+	[H: setBarVisible("Health",0)]
+	[H: setBarVisible("HealthTemp",0)] -->
+
+<!-- Kill if dying value equal or above DyingMax. -->
+<!-- This would makes anything set to DyingMax of 1 automatically killed by Doomed
+	which is probably not ideal since it's a useful hack for undead or constructs or
+	summons or whatever to go away without instantly dying from doomed...so here's a quick
+	hack to ignore Doomed values on anything at DyingMax at 1.
+-->
+
+[h, if(tDyingMax==1): tDoomed=0]
+[h, if(tDying+tDoomed>=tDyingMax), code: {
+	[h: setState("Dead",1)]
+};{
+	[h: setState("Dead",0)]
+}]
+
+
+<!-- Updates hit point bars, hiding if completely full or irrelevant. -->
+
+
+	[H, if( effectiveHP >= 0 ), code: {
+		[H: bar.HPdamage = (tMaxEffectiveHP - effectiveHP) / tMaxEffectiveHP]
+		[H: setBarVisible("EmptyHP",0)]
+		[H: bar.TempHP = bar.HPdamage + (tHPtemp / tMaxEffectiveHP) ]
+		[H: bar.NLD_HP = HPNonLethalDMG / tMaxEffectiveHP ]
+	};{
+		[H: bar.HPdamage = max(0,(deathPoint - effectiveHP) / deathPoint) ]
+		[H: bar.EmptyHP = 1]
+		[H: setBarVisible("NLD_HP",0) ]
+		[H: setBarVisible("TempHP",0) ]
+	}]   
+
+
+<!-- Updates dying/wounded overlays, hiding if not wounded or dying. -->
+[h: setState("Dying",0,tToken)]
+[h: setState("Dying2",0,tToken)]
+[h: setState("Dying3",0,tToken)]
+[h: setState("Dying4",0,tToken)]
+
+
+
+[h:StateUnconscious=getState("Unconscious",tToken)]
+
+[h:jargs = json.set("{}","tToken",tToken)]
+
+
+[h,if(HP<1 && StateUnconscious==0), code:{
+	[macro("setUnconscious@Lib:States"):jargs]
+};{}]
+
+[h, if(HP>0 && StateUnconscious==1), code:{
+	[macro("setUnconscious@Lib:States"):jargs]
+};{}]
+
+
+
+[h: setState("Wounded",0,tToken)]
+[h: setState("Wounded2",0,tToken)]
+[h: setState("Wounded3",0,tToken)]
+[h: setState("Wounded4",0,tToken)]
+
+
+
+[h,if(wasDying), code:
+{
+	[h:tWounded=tWounded+1]
+	[h:Dying=0]
+}]
+
+
+[h, if(tWounded ==1), code: {
+	[h: setState("Wounded",1,tToken)]
+	[h: Wounded=1]
+};{}]
+
+[h, if(tWounded ==2), code: {
+	[h: setState("Wounded2",1,tToken)]
+	[h: Wounded=2]
+};{}]
+
+[h, if(tWounded ==3), code: {
+	[h: setState("Wounded3",1,tToken)]
+	[h: Wounded=3]
+};{}]
+
+[h, if(tWounded ==4), code: {
+	[h: setState("Wounded4",1,tToken)]
+	[h: Wounded=4]
+};{}]
+
+
+<!-- Removes various bars and overlays if dead. -->
+[H, if(state.Dead), code: {
+	[H: setBarVisible("HPdamage",0)]
+	[H: setBarVisible("EmptyHP",0)]
+	[H: setBarVisible("NLD_HP",0) ]
+	[H: setBarVisible("TempHP",0) ]
+	[H: setState("Incapacitated",0)]
+	[h: setState("Dying",0)]
+	[h: setState("Dying2",0)]
+	[h: setState("Dying3",0)]
+	[h: setState("Dying4",0)]
+	[h: setState("Wounded",0)]
+	[h: setState("Wounded2",0)]
+	[h: setState("Wounded3",0)]
+	[h: setState("Wounded4",0)]
+	[h: setState("Unconscious",0)]
+	[h: Dying=999]
+};{
+}]
+[h:TokenType=getPropertyType()]
+
+[h, if(state.Dead && TokenType=="NPC"), code:{
+	[h:layername = "Object"]
+    [h:setLayer(layername)]
+};{}]
+
+
+<!-- Restores HP Bar for max HP> -->
+[h, if(HP==MaxHP), code: {
+	[H: setBarVisible("HPdamage",1)]
+	[H: setBarVisible("NLD_HP",1) ]
+	[H: bar.HPdamage = 0]
+	[H: bar.NLD_HP = 0]
+	[h:Wounded=0]
+	[h: setState("Wounded",0)]
+	[h: setState("Wounded2",0)]
+	[h: setState("Wounded3",0)]
+	[h: setState("Wounded4",0)]
+
+	
+};{}]
+
+
+<!-- Applies bloodied state -->
+[h, if(HP<=(MaxHP/2)), code:{
+	[h:state.Bloodied=1]};{
+	[h:state.Bloodied=0]	
+}]
+
+
+<!-- Fixes deleted Dying & Wounded properties -->
+
+[h:Dying=if(Dying=="", 0, Dying)]
+[h:Wounded=if(Wounded=="", 0, Wounded)]
+
+<!-- Update Party Overlay if in Initiative--->
+[h,if(initiativeSize()<1),code:{};{
+[h: vUpdatePartyOverlay = macroLinkText("partyOverlay@Lib:Characters", "none")]
+[h: execLink(vUpdatePartyOverlay, 1, "all")]
+}]

@@ -1,0 +1,20 @@
+# --- Large Assets (Ignore these for the Repo) ---
+# Add your specific large filename here:
+*.cmpgn
+*.rpmap
+*.7z
+
+# Ignore all zip files (if that's how you store backups)
+*.zip
+
+# --- OS & Tool Junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Dropbox Conflict Files ---
+*conflict*
+
+# --- MapTool Specific (if applicable) ---
+# If MapTool generates logs or temp data, add them here
+*.log

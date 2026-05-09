@@ -1,0 +1,197 @@
+[h:Name="Battle Medicine"]
+[h:FeatLevel="1"]
+[h:Traits=json.append("", "General", "Healing", "Manipulate", "Skill")]
+[h:Trigger=""]
+[h:Requirements="You are holding or wearing <a href='macro://_HealerTools@Lib:Pf2/self/'>healer&#39;s tools</a> and have a free hand."]
+[h:Action="1"]
+
+
+[h:MedicineTraining=json.get(Training,"Medicine")]
+
+[macro("Get_Skill_Values@lib:Actions"):""]
+
+
+[h, if(json.isEmpty(macro.return)), code:{
+};{
+	[h, foreach(field,json.fields(macro.return),""), code:{
+		[h: set(field,json.get(macro.return,field))]
+	}]
+}]
+
+[h:Bonus=0][h:ImmuneTime="1 day"]
+[h:FeatName=json.append("","")][h:FeatReminder=0]
+
+[h:GodlessHealing=json.contains(Feats,"Godless Healing")]
+[if(GodlessHealing==1), code:{
+	[h:FeatReminder=1][h:FeatName=json.append(FeatName,"Godless Healing")]
+	[h:Bonus=5]
+	[h:ImmuneTime="1 hour"]
+};{}]
+
+[h,if(Class=="Investigator"), code:{
+
+	[ForensicMedicine=if(Methodology=="Forensic Medicine", 1, 0)]
+	
+};{
+	[ForensicMedicine=0]
+	}]
+
+[h,if(ForensicMedicine), code:{
+	[h:FeatReminder=1][h:FeatName=json.append(FeatName,"Forensic Medicine (Methodology)")]
+	[h:Bonus=Bonus+Level]
+	[h:ImmuneTime="1 hour"]
+};{}]
+
+[h:AssuranceMedicine=if(json.contains(Feats,"Assurance") && json.contains(Assurance, "Medicine"), 1, 0)]
+[if(AssuranceMedicine==1), code:{
+	[h:AssuranceCheck=input(
+	"junkVar|_|_|LABEL",
+	"UseAssurance|No,Yes|Use Assurance?|LIST|Select=1"
+	)]
+	[h:abort(AssuranceCheck)]
+	[h:AssuranceMedicine=UseAssurance]
+};{
+}]
+
+[if(AssuranceMedicine==1), code:{
+	[h:FeatReminder=1][h:FeatName=json.append(FeatName,"Assurance")]
+};{
+}]
+
+
+
+[h,switch(MedicineTraining),code:
+	case 0: {[h:Option=0]};
+	case 1: {[h:Option=0]};
+	case 2: {[h:Option=20]};
+	case 3: {[h:Option=30]};
+	case 4: {[h:Option=40]}
+	]
+[h:OptionDC=1]
+
+[h,if(Option==20), code:{
+[h:listOptions="--Choose--,DC 15 (Trained), DC 20 (Expert)"]
+[h:DC_Check=input(
+	"OptionDC|"+listOptions+"|Which DC do you want to attempt?|LIST"
+	)]
+[h:abort(DC_Check)]	
+};{}]
+
+[h,if(Option==30), code:{
+[h:listOptions="--Choose--,DC 15 (Trained), DC 20 (Expert), DC 30 (Master)"]
+[h:DC_Check=input(
+	"OptionDC|"+listOptions+"|Which DC do you want to attempt?|LIST"
+	)]
+[h:abort(DC_Check)]	
+};{}]
+
+[h,if(Option==40), code:{
+[h:listOptions="--Choose--,DC 15 (Trained), DC 20 (Expert), DC 30 (Master), DC 40 (Legendary)"]
+[h:DC_Check=input(
+	"OptionDC|"+listOptions+"|Which DC do you want to attempt?|LIST"
+	)]
+[h:abort(DC_Check)]	
+};{}]
+
+
+
+[h,switch(OptionDC), code:
+	case 0: {[h:DC=15][h:ExtraBonus=0]};
+	case 1: {[h:DC=15][h:ExtraBonus=0]};
+	case 2: {[h:DC=20][h:ExtraBonus=10]};
+	case 3: {[h:DC=30][h:ExtraBonus=30]};
+	case 4: {[h:DC=40][h:ExtraBonus=50]}
+	]
+
+[h:MedicDedication=if(json.contains(Feats, "Medic Dedication") && DC>15, 1, 0)]
+[h,if(MedicDedication), code: {
+	[h:FeatReminder=1][h:FeatName=json.append(FeatName,"Medic Dedication")]
+	[h:MedicBonus=(DC-10)/2]
+	[h:ExtraBonus=ExtraBonus+MedicBonus]
+};{}]
+
+
+[if(FeatReminder==1), code:{
+	[h:FeatReminder1="<hr><i>Feats and Abilities included: "][h:FeatReminder2="</i>"]
+};{
+	[h:FeatReminder1=""][h:FeatReminder2=""]
+}]
+[h:FeatName=json.toList(FeatName, ", ")]
+
+[h:Bonus=Bonus+ExtraBonus]
+
+[h:MedRoll=d20]
+[h:MedRoll=if(AssuranceMedicine==1, 10-Wis, MedRoll)]
+
+
+[h:MedCheckTooltip=if(AssuranceMedicine==1, "Assurance", "d20 +"+Medicine)]
+
+[h:MedCheck=MedRoll+Medicine]
+
+[h:HealSuccess=2d8+Bonus]
+[h:HealCrit=HealSuccess+2d8]
+[h:HealFail=1d8]
+
+
+	[h:BMResult=if(MedCheck>DC+9, 1, 4)]
+	[h:BMResult=if(MedCheck>DC-1 && BMResult!=1, 2, BMResult)]
+	[h:BMResult=if(MedCheck<DC, 3, BMResult)]
+	[h:BMResult=if(MedCheck<DC-9, 4, BMResult)]
+
+	[h:BMResult=if(MedRoll==20, max(BMResult-1, 1), BMResult)]
+	[h:BMResult=if(MedRoll==1, min(BMResult+1, 4), BMResult)]
+
+
+	[h,switch(BMResult),code:
+		case 1:{[HealingAmount=HealCrit][BMResultText="Critical Success!"][BMtooltip="4d8+"+Bonus]};
+		case 2:{[HealingAmount=HealSuccess][BMResultText="Success!"][BMtooltip="2d8+"+Bonus]};
+		case 3:{[HealingAmount=0][BMResultText="Failure!"][BMtooltip="0"]};
+		case 4:{[HealingAmount=HealFail][BMResultText="Critical Failure!"][BMtooltip="1d8"]}
+		]
+
+[h:Text="You can patch up yourself or an adjacent ally, even in combat. Attempt  a  Medicine  check  with  the  same  DC as  for  Treat  Wounds  and  provide  the  corresponding  amount  of  healing (this does not remove the <u>wounded</u> condition).  As  with  Treat  Wounds,  you  can  attempt  checks  against  higher  DCs  if  you  have  the  minimum  proficiency  rank.  The  target  is  then  temporarily  immune  to  your  Battle  Medicine  for "+ImmuneTime+".<br><h3>Medicine Check:</b> <span title='<html>"+MedCheckTooltip+"</html>'style='background-color:#cccccc;'>"+MedCheck+"</span> vs. DC "+DC+" </h3><b>"+BMResultText+"</b> "]
+
+[h:Text=if(BMResult==4, Text+"The target takes <span title='<html>"+BMtooltip+"</html>'style='background-color:#cccccc;'>"+HealingAmount+"</span> damage.", Text+"The target regains <span title='<html>"+BMtooltip+"</html>'style='background-color:#cccccc;'>"+HealingAmount+"</span> hit points.")]
+
+
+[h:Text=Text+FeatReminder1+FeatName+FeatReminder2]
+
+[h:FeatData = json.set(
+	"{}",
+	"Name",Name,
+	"FeatLevel",FeatLevel,
+	"Traits",Traits,
+	"Trigger",Trigger,
+	"Requirements",Requirements,
+	"Action",Action,
+	"Text",Text
+)]
+
+[macro("Feat@Lib:Pf2"):FeatData]
+
+
+[h:lsVisiblePC= json.intersection( getPCNames("json"), getVisibleTokenNames("json"))]
+[h: assert(json.length(lsVisiblePC), "No visible PC", 0)]
+
+[h:status=input(
+	"BMTarget|"+json.toList(lsVisiblePC)+"|Battle Medicine Recipient|LIST"
+	)
+]
+[h:abort(status)]
+
+
+		[h:BMTarget = json.get(lsVisiblePC, BMTarget) ]
+
+[switchToken(BMTarget)]
+
+	[h:wasDying=if(HP==0,1,0)]
+	[h:HP=min(HPMax, HP+HealingAmount)]
+	[h:HP=max(0, HP)]
+	[h:jargs = json.set("{}","tToken",BMTarget,"wasDying",wasDying)]
+	[h,MACRO("updateHealthTrackersAlt@Lib:Health"): jargs]	
+	[if(BMResult==4), code: {
+		[r:BMTarget] takes [r:HealingAmount] damage!	
+	};{
+	[r:BMTarget] healed [r:HealingAmount] hit points!	
+	}]
+

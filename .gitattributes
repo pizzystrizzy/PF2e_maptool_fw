@@ -1,0 +1,2 @@
+*.dcmgit[[:space:]]rm[[:space:]]--cached[[:space:]]PF2e_maptool_fw.cmpgn filter=lfs diff=lfs merge=lfs -text
+*.dcmgit[[:space:]]rm[[:space:]]--cached[[:space:]]Library.rpmap filter=lfs diff=lfs merge=lfs -text
